@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scan {{ scan.id }} · AI Phishing Email Detector</title>
+    <style>
+        :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; background: #0b1220; color: #eef4fa; }
+        * { box-sizing: border-box; }
+        body { margin: 0; min-height: 100vh; }
+        a { color: #62e2d2; }
+        main { max-width: 930px; margin: auto; padding: 32px 20px 52px; }
+        header, .actions, .finding-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+        h1 { margin: 0 0 6px; font-size: clamp(1.6rem, 3vw, 2rem); }
+        h2 { margin: 25px 0 12px; font-size: 1.15rem; }
+        p { color: #d7e1eb; line-height: 1.55; }
+        .muted { color: #aab9ca; }
+        .card { margin-top: 20px; padding: 22px; border: 1px solid #2b3c52; border-radius: 15px; background: #121e2e; }
+        .score { font-size: 1.8rem; font-weight: 800; }
+        .pill { display: inline-block; padding: 5px 10px; border: 1px solid #47647a; border-radius: 20px; color: #d6e8f4; }
+        .finding { margin-top: 12px; padding: 14px; border-left: 3px solid #edbb5c; border-radius: 5px; background: #1b2532; }
+        .finding p { margin: 7px 0 0; }
+        code { overflow-wrap: anywhere; color: #f4d68e; }
+        ul { padding-left: 22px; color: #d7e1eb; }
+        li + li { margin-top: 7px; }
+        .breakdown { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+        .breakdown div { padding: 13px; border: 1px solid #2b3c52; border-radius: 9px; background: #0e1826; }
+        .breakdown dt { color: #aab9ca; font-size: .85rem; }
+        .breakdown dd { margin: 5px 0 0; font-size: 1.1rem; font-weight: 700; }
+        .disclaimer { padding: 14px; border-radius: 9px; background: #1c2a38; }
+        .button { display: inline-flex; min-height: 40px; align-items: center; padding: 9px 13px; border: 1px solid #299e91; border-radius: 8px; background: #20b9a7; color: #061521; font-weight: 700; text-decoration: none; }
+        .button:hover { background: #46d3c2; }
+        @media (max-width: 620px) { main { padding: 22px 12px; } header, .actions { align-items: flex-start; flex-direction: column; } .card { padding: 17px; } }
+    </style>
+</head>
+<body>
+<main>
+    <header>
+        <div>
+            <h1>Email Scan Details</h1>
+            <p class="muted">Scan #{{ scan.id }} · {{ scan.timestamp }}</p>
+        </div>
+        <nav aria-label="Main navigation">
+            <a href="{{ url_for('history') }}">Back to scan history</a>
+        </nav>
+    </header>
+
+    <section class="card" aria-label="Scanned email details">
+        <p><strong>Sender:</strong> {{ scan.sender }}</p>
+        <p><strong>Subject:</strong> {{ scan.subject }}</p>
+        <p class="muted">Email body is not stored in scan history.</p>
+    </section>
+
+    <section class="card" aria-label="Risk assessment">
+        <span class="score">{{ scan.score }}/100</span>
+        <span class="pill">{{ scan.category }} risk</span>
+        <h2>AI assessment</h2>
+        <p><strong>Verdict:</strong> {{ scan.ai_verdict or "Unavailable" }}</p>
+        <p><strong>Confidence:</strong> {{ scan.ai_confidence or "Not recorded for this scan" }}</p>
+        <p><strong>AI score:</strong> {{ scan.ai_score if scan.ai_score is not none else "Not recorded" }}</p>
+
+        <h2>Score breakdown</h2>
+        <dl class="breakdown">
+            {% for label, value in scan.score_breakdown.items() %}
+            <div>
+                <dt>{{ label.replace("_", " ")|title }}</dt>
+                <dd>{{ value if value is not none else "Not recorded" }}</dd>
+            </div>
+            {% endfor %}
+        </dl>
+
+        <h2>Rule-based findings</h2>
+        {% if scan.findings %}
+            {% for finding in scan.findings %}
+            <div class="finding">
+                <div class="finding-head">
+                    <strong>{{ finding.label }}</strong>
+                    {% if finding.score is not none %}<span>+{{ finding.score }}</span>{% endif %}
+                </div>
+                <p>Evidence: <code>{{ finding.evidence }}</code></p>
+                {% if finding.explanation %}<p class="muted">{{ finding.explanation }}</p>{% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+        <p class="muted">No configured rule indicators were detected.</p>
+        {% endif %}
+
+        <h2>AI reasons</h2>
+        {% if scan.ai_reasons %}
+        <ul>{% for reason in scan.ai_reasons %}<li>{{ reason }}</li>{% endfor %}</ul>
+        {% else %}<p class="muted">No AI reasons were stored.</p>{% endif %}
+
+        <h2>AI evidence</h2>
+        {% if scan.ai_evidence %}
+        <ul>{% for evidence in scan.ai_evidence %}<li><code>{{ evidence }}</code></li>{% endfor %}</ul>
+        {% else %}<p class="muted">No AI evidence was stored.</p>{% endif %}
+
+        <h2>Uncertainty</h2>
+        <p>{{ scan.ai_uncertainty or "Not recorded for this scan." }}</p>
+
+        <h2>Recommended actions</h2>
+        {% if scan.ai_actions %}
+        <ul>{% for action in scan.ai_actions %}<li>{{ action }}</li>{% endfor %}</ul>
+        {% else %}<p class="muted">No recommended actions were stored.</p>{% endif %}
+
+        <div class="actions">
+            <a class="button" href="{{ url_for('export_scan', scan_id=scan.id) }}">Download JSON report</a>
+            <a class="button" href="{{ url_for('export_scan_text', scan_id=scan.id) }}">Download TXT report</a>
+        </div>
+        <p class="disclaimer">
+            This result is an advisory assessment and is not a guarantee that an email is safe or malicious.
+        </p>
+    </section>
+</main>
+</body>
+</html>

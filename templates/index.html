@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0b1220">
+    <title>AI Phishing Email Detector</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #0b1220;
+            color: #eef4fa;
+            font-synthesis: none;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; min-height: 100vh; background: radial-gradient(ellipse at 70% 0, #12293b 0, #0b1220 48rem); }
+        a { color: #62e2d2; }
+        .shell { max-width: 1040px; margin: auto; padding: 32px 20px 52px; }
+        header, .nav, .card-head, .status, .score-row, .finding-head { display: flex; align-items: center; }
+        header, .card-head, .score-row { justify-content: space-between; gap: 18px; }
+        .brand { display: flex; align-items: center; gap: 13px; }
+        .brand-mark { display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid #287b78; border-radius: 12px; color: #62e2d2; font-weight: 800; }
+        h1, h2, h3, p { margin-top: 0; }
+        h1 { margin-bottom: 4px; font-size: clamp(1.45rem, 3vw, 2rem); }
+        h2 { font-size: 1.15rem; }
+        h3 { margin-bottom: 8px; font-size: 1rem; }
+        .muted, .subtitle { color: #aab9ca; }
+        .subtitle { margin: 4px 0 0; font-size: .94rem; }
+        .nav { gap: 18px; }
+        .card { margin-top: 24px; padding: 25px; border: 1px solid #2b3c52; border-radius: 16px; background: #121e2e; box-shadow: 0 18px 48px #0002; }
+        .status { gap: 9px; margin-top: 22px; padding: 12px 15px; border: 1px solid #31445a; border-radius: 10px; background: #101a28; }
+        .dot { width: 10px; height: 10px; flex: 0 0 auto; border-radius: 50%; background: #ff7777; }
+        .dot.ready { background: #52d6a5; box-shadow: 0 0 12px #52d6a566; }
+        .model { margin-left: auto; color: #aab9ca; font-size: .88rem; }
+        label { display: block; margin: 18px 0 7px; color: #dce8f3; font-weight: 650; }
+        input, textarea { width: 100%; padding: 12px 13px; border: 1px solid #40536a; border-radius: 9px; outline: none; background: #0b1421; color: #f5f8fb; font: inherit; }
+        input:focus, textarea:focus { border-color: #52cfc0; box-shadow: 0 0 0 3px #52cfc022; }
+        textarea { min-height: 170px; resize: vertical; }
+        .hint { margin: 6px 0 0; color: #aab9ca; font-size: .84rem; }
+        button, .button { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; gap: 9px; padding: 10px 15px; border: 1px solid #299e91; border-radius: 9px; background: #20b9a7; color: #061521; font: inherit; font-weight: 750; text-decoration: none; cursor: pointer; }
+        button:hover, .button:hover { background: #46d3c2; }
+        button:focus-visible, a:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+        button:disabled { opacity: .7; cursor: wait; }
+        .submit { width: 100%; margin-top: 20px; }
+        .spinner { display: none; width: 16px; height: 16px; border: 2px solid #143735; border-top-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
+        .busy .spinner { display: inline-block; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .alert { margin-top: 18px; padding: 14px 16px; border: 1px solid #a85858; border-radius: 10px; background: #351e27; color: #ffd2d2; }
+        .result-card { border-top: 3px solid #52d6a5; }
+        .result-card.incomplete { border-color: #e9b55b; }
+        .risk { min-width: 130px; text-align: right; }
+        .risk strong { display: block; font-size: 2rem; }
+        .pill { display: inline-block; margin-top: 4px; padding: 4px 9px; border: 1px solid #47647a; border-radius: 20px; color: #d6e8f4; font-size: .86rem; }
+        .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+        .panel { padding: 16px; border: 1px solid #2b3c52; border-radius: 11px; background: #0e1826; }
+        .finding { margin-top: 12px; padding: 13px; border-left: 3px solid #edbb5c; border-radius: 5px; background: #1b2532; }
+        .finding-head { justify-content: space-between; gap: 12px; }
+        .finding p { margin: 7px 0 0; }
+        code { overflow-wrap: anywhere; color: #f4d68e; }
+        .list { margin: 9px 0 0; padding-left: 20px; color: #d5e0ea; }
+        .list li + li { margin-top: 7px; }
+        .disclaimer { margin: 20px 0 0; padding: 14px 16px; border-radius: 9px; background: #1c2a38; color: #d3e2ef; font-size: .91rem; line-height: 1.55; }
+        footer { margin-top: 28px; color: #8293a8; font-size: .84rem; text-align: center; }
+        @media (max-width: 700px) {
+            .shell { padding: 24px 14px 38px; }
+            header { align-items: flex-start; flex-direction: column; }
+            .nav { gap: 14px; }
+            .card { padding: 19px; }
+            .status { align-items: flex-start; flex-wrap: wrap; }
+            .model { width: 100%; margin-left: 19px; }
+            .grid { grid-template-columns: 1fr; }
+            .risk { min-width: 105px; }
+        }
+    </style>
+</head>
+<body>
+<main class="shell">
+    <header>
+        <div class="brand">
+            <div class="brand-mark" aria-hidden="true">PD</div>
+            <div>
+                <h1>AI Phishing Email Detector</h1>
+                <p class="subtitle">Local AI analysis with explainable risk signals</p>
+            </div>
+        </div>
+        <nav class="nav" aria-label="Main navigation">
+            <a href="{{ url_for('history') }}">Scan history</a>
+        </nav>
+    </header>
+
+    <div class="status" role="status" aria-live="polite">
+        <span class="dot{% if ollama_status.available and ollama_status.model_available %} ready{% endif %}" aria-hidden="true"></span>
+        <span>{{ ollama_status.message }}</span>
+        <span class="model">Active model: <strong>{{ model }}</strong></span>
+    </div>
+
+    {% if error %}
+    <div class="alert" role="alert">{{ error }}</div>
+    {% endif %}
+
+    <section class="card" aria-labelledby="form-title">
+        <div class="card-head">
+            <div>
+                <h2 id="form-title">Analyze an email</h2>
+                <p class="muted">Use synthetic examples or messages you are authorized to review.</p>
+            </div>
+        </div>
+        <form method="POST" action="{{ url_for('home') }}" id="analysis-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label for="sender">Sender email</label>
+            <input type="email" name="sender" id="sender" autocomplete="off" maxlength="320" required
+                   value="{{ form_data.get('sender', '') }}" placeholder="security@example.com">
+
+            <label for="subject">Email subject</label>
+            <input type="text" name="subject" id="subject" maxlength="200" required
+                   value="{{ form_data.get('subject', '') }}" placeholder="Enter the message subject">
+
+            <label for="body">Email body</label>
+            <textarea name="body" id="body" maxlength="10000" required
+                      placeholder="Paste the email content here...">{{ form_data.get('body', '') }}</textarea>
+            <p class="hint">Maximum 10,000 characters. Email bodies are analyzed but are not stored in scan history.</p>
+
+            <button type="submit" class="submit" id="analyze-button">
+                <span class="spinner" aria-hidden="true"></span>
+                <span id="button-label">Analyze email locally</span>
+            </button>
+            <p class="hint" id="loading-message" role="status" aria-live="polite" hidden>
+                Waiting for the local AI model. This may take a little while.
+            </p>
+        </form>
+    </section>
+
+    {% if result %}
+    <section class="card result-card{% if not result.analysis_complete %} incomplete{% endif %}" aria-labelledby="result-title" aria-live="polite">
+        {% if result.analysis_complete %}
+        <div class="card-head">
+            <div>
+                <h2 id="result-title">Analysis result</h2>
+                <p class="muted">Score reflects indicators found in the submitted text.</p>
+            </div>
+            <div class="risk">
+                <strong>{{ result.score }}/100</strong>
+                <span class="pill">{{ result.category }} risk</span>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="panel">
+                <h3>AI assessment</h3>
+                <p><strong>Verdict:</strong> {{ result.ai.verdict }}</p>
+                <p><strong>Confidence:</strong> {{ result.ai.confidence }}</p>
+                <p><strong>AI score:</strong> {{ result.ai.ai_score }}/40 before overlap adjustment</p>
+                <p><strong>Uncertainty:</strong> {{ result.ai.uncertainty }}</p>
+            </div>
+            <div class="panel">
+                <h3>Score breakdown</h3>
+                <ul class="list">
+                    <li>Rule indicators: {{ result.score_breakdown.rule_score }}/60</li>
+                    <li>Raw AI assessment: {{ result.score_breakdown.ai_raw_score }}/40</li>
+                    <li>Duplicate-signal adjustment: −{{ result.score_breakdown.ai_overlap_penalty }}</li>
+                    <li>Effective AI contribution: {{ result.score_breakdown.ai_effective_score }}</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="grid" style="margin-top: 18px;">
+            <div class="panel">
+                <h3>Rule-based findings</h3>
+                {% if result.rule_findings %}
+                    {% for finding in result.rule_findings %}
+                    <div class="finding">
+                        <div class="finding-head">
+                            <strong>{{ finding.label }}</strong>
+                            <span>+{{ finding.score }}</span>
+                        </div>
+                        <p>Evidence: <code>{{ finding.evidence }}</code></p>
+                        <p class="muted">{{ finding.explanation }}</p>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="muted">No configured rule indicators were detected.</p>
+                {% endif %}
+            </div>
+            <div class="panel">
+                <h3>AI reasons</h3>
+                {% if result.ai.reasons %}
+                <ul class="list">
+                    {% for reason in result.ai.reasons %}<li>{{ reason }}</li>{% endfor %}
+                </ul>
+                {% else %}<p class="muted">No additional reasons were returned.</p>{% endif %}
+                <h3 style="margin-top: 18px;">AI evidence</h3>
+                {% if result.ai.evidence %}
+                <ul class="list">
+                    {% for evidence in result.ai.evidence %}<li><code>{{ evidence }}</code></li>{% endfor %}
+                </ul>
+                {% else %}<p class="muted">No supporting excerpts were returned.</p>{% endif %}
+                <h3 style="margin-top: 18px;">Recommended actions</h3>
+                <ul class="list">
+                    {% for action in result.ai.recommended_actions %}<li>{{ action }}</li>{% endfor %}
+                </ul>
+            </div>
+        </div>
+        <p class="disclaimer">
+            This result is an advisory assessment and is not a guarantee that an email is safe or malicious.
+            Do not open suspicious links or provide credentials based only on this analysis.
+        </p>
+        {% else %}
+        <h2 id="result-title">Analysis incomplete</h2>
+        <p>{{ result.message }}</p>
+        <p class="disclaimer">No risk score or risk category was assigned because a valid AI assessment was not available.</p>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    <footer>AI-Powered Phishing Detection System · Local processing through Ollama</footer>
+</main>
+<script>
+    const form = document.getElementById("analysis-form");
+    form.addEventListener("submit", () => {
+        const button = document.getElementById("analyze-button");
+        button.disabled = true;
+        document.getElementById("button-label").textContent = "Analyzing...";
+        document.getElementById("loading-message").hidden = false;
+    });
+</script>
+</body>
+</html>

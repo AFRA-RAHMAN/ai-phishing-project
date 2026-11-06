@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scan History · AI Phishing Email Detector</title>
+    <style>
+        :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; background: #0b1220; color: #eef4fa; }
+        * { box-sizing: border-box; }
+        body { margin: 0; min-height: 100vh; }
+        a { color: #62e2d2; }
+        main { max-width: 1180px; margin: auto; padding: 32px 20px 52px; }
+        header, .toolbar, .filters { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+        header { margin-bottom: 22px; }
+        h1 { margin: 0 0 5px; font-size: clamp(1.6rem, 3vw, 2rem); }
+        h2 { margin: 0 0 6px; font-size: 1.15rem; }
+        p { color: #aab9ca; }
+        .card { padding: 22px; border: 1px solid #2b3c52; border-radius: 15px; background: #121e2e; }
+        .filters { justify-content: flex-start; flex-wrap: wrap; margin-top: 20px; }
+        input, select { min-height: 42px; padding: 9px 11px; border: 1px solid #40536a; border-radius: 8px; background: #0b1421; color: #eef4fa; font: inherit; }
+        input { width: min(320px, 100%); }
+        button, .button { min-height: 40px; padding: 9px 13px; border: 1px solid #299e91; border-radius: 8px; background: #20b9a7; color: #061521; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; }
+        button:hover, .button:hover { background: #46d3c2; }
+        .danger { border-color: #9e4f59; background: #9f4553; color: white; }
+        .danger:hover { background: #bd5866; }
+        .table-wrap { overflow-x: auto; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 13px 11px; border-bottom: 1px solid #2c3b4e; vertical-align: middle; }
+        th { color: #9be4db; font-size: .88rem; }
+        td { color: #d7e1eb; }
+        td form { margin: 0; }
+        .empty { margin-top: 20px; padding: 24px; border: 1px dashed #40536a; border-radius: 10px; text-align: center; }
+        .empty p { margin: 0; }
+        button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid white; outline-offset: 3px; }
+        @media (max-width: 760px) {
+            main { padding: 22px 12px; }
+            header, .toolbar { align-items: flex-start; flex-direction: column; }
+            .card { padding: 16px; }
+            th, td { padding: 10px 8px; }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <header>
+        <div>
+            <h1>Email Scan History</h1>
+            <p>Stored scan metadata and explainable results. Email bodies are not retained.</p>
+        </div>
+        <nav aria-label="Main navigation"><a href="{{ url_for('home') }}">Back to dashboard</a></nav>
+    </header>
+
+    <section class="card" aria-labelledby="history-title">
+        <div class="toolbar">
+            <div>
+                <h2 id="history-title">Previous scans</h2>
+                <p>Search by sender or subject, or narrow by risk category.</p>
+            </div>
+            {% if scans %}
+            <form method="POST" action="{{ url_for('clear_history') }}"
+                  onsubmit="return confirm('Permanently delete all scan history?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="danger" type="submit">Clear all history</button>
+            </form>
+            {% endif %}
+        </div>
+
+        <form method="GET" action="{{ url_for('history') }}" class="filters">
+            <label for="search">Search</label>
+            <input id="search" type="search" name="search" maxlength="200"
+                   placeholder="Sender or subject" value="{{ search }}">
+            <label for="category">Risk category</label>
+            <select id="category" name="category">
+                <option value="">All categories</option>
+                {% for value in ("Low", "Medium", "High", "Critical") %}
+                <option value="{{ value }}" {% if category == value %}selected{% endif %}>{{ value }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit">Apply filters</button>
+            {% if search or category %}<a href="{{ url_for('history') }}">Reset</a>{% endif %}
+        </form>
+
+        {% if scans %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th scope="col">ID</th>
+                        <th scope="col">Date and time</th>
+                        <th scope="col">Sender</th>
+                        <th scope="col">Subject</th>
+                        <th scope="col">Risk score</th>
+                        <th scope="col">Risk level</th>
+                        <th scope="col">Details</th>
+                        <th scope="col">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for scan in scans %}
+                    <tr>
+                        <td>{{ scan.id }}</td>
+                        <td>{{ scan.timestamp }}</td>
+                        <td>{{ scan.sender }}</td>
+                        <td>{{ scan.subject }}</td>
+                        <td>{{ scan.score }}/100</td>
+                        <td>{{ scan.category }}</td>
+                        <td><a href="{{ url_for('scan_details', scan_id=scan.id) }}">View details</a></td>
+                        <td>
+                            <form method="POST" action="{{ url_for('delete_scan', scan_id=scan.id) }}"
+                                  onsubmit="return confirm('Delete this scan from history?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button class="danger" type="submit">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty" role="status">
+            {% if search or category %}
+            <p>No scans match these filters. Try another search or reset the filters.</p>
+            {% else %}
+            <p>No scans yet. New analyses will appear here.</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </section>
+</main>
+</body>
+</html>
